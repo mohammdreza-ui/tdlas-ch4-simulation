@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TDLAS Methane Spectroscopy Cockpit</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-badge">CH₄ TDLAS</div>
+        <div class="header-titles">
+          <h1>Methane Spectroscopy Analysis Cockpit</h1>
+          <p class="subtitle">3018 cm⁻¹ (3.3 µm) ICL • Integrating Sphere Multipass Cell • Cranfield Architecture</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-indicator">
+          <span class="pulse-dot"></span>
+          <span id="backend-status">Physics Backend Live</span>
+        </div>
+        <button id="btn-export-figures" class="btn btn-outline" title="Generate 300 DPI publication figures">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export Figures
+        </button>
+      </div>
+    </header>
+
+    <!-- Presets Toolbar -->
+    <div class="presets-toolbar">
+      <span class="presets-label">Scientific Presets:</span>
+      <div class="presets-group">
+        <button id="preset-nominal" class="preset-btn active" data-preset="nominal">
+          <strong>Nominal</strong> (50 ppm, 296 K, Clean)
+        </button>
+        <button id="preset-lod" class="preset-btn" data-preset="detection_limit">
+          <strong>Detection Limit</strong> (1 ppm, Low SNR)
+        </button>
+        <button id="preset-etalon" class="preset-btn" data-preset="etalon_interference">
+          <strong>Etalon Interference</strong> (Strong fringes)
+        </button>
+        <button id="preset-high-tp" class="preset-btn" data-preset="high_tp">
+          <strong>High T & P</strong> (350 K, 1.5 atm)
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace-grid">
+      <!-- Sidebar Controls -->
+      <aside class="sidebar-panel">
+        <div class="panel-header">
+          <h2>Instrument Parameters</h2>
+          <button id="btn-reset-params" class="btn-text">Reset</button>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>CH₄ Concentration</span>
+            <span id="val-concentration" class="badge-val">50.0 ppm</span>
+          </div>
+          <input type="range" id="slider-concentration" min="0.1" max="100.0" step="0.5" value="50.0">
+          <div class="range-bounds"><span>0.1 ppm</span><span>100 ppm</span></div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Gas Temperature</span>
+            <span id="val-temperature" class="badge-val">296.0 K</span>
+          </div>
+          <input type="range" id="slider-temperature" min="250.0" max="400.0" step="1.0" value="296.0">
+          <div class="range-bounds"><span>250 K</span><span>400 K</span></div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Total Pressure</span>
+            <span id="val-pressure" class="badge-val">1.00 atm</span>
+          </div>
+          <input type="range" id="slider-pressure" min="0.5" max="2.0" step="0.05" value="1.0">
+          <div class="range-bounds"><span>0.5 atm</span><span>2.0 atm</span></div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>White Noise Std Dev</span>
+            <span id="val-noise" class="badge-val">1.5 mV</span>
+          </div>
+          <input type="range" id="slider-noise" min="0.0005" max="0.02" step="0.0005" value="0.0015">
+          <div class="range-bounds"><span>0.5 mV</span><span>20 mV</span></div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Etalon Fringe Amplitude</span>
+            <span id="val-etalon" class="badge-val">0.5 %</span>
+          </div>
+          <input type="range" id="slider-etalon" min="0.0" max="0.05" step="0.002" value="0.005">
+          <div class="range-bounds"><span>0.0 %</span><span>5.0 %</span></div>
+        </div>
+
+        <button id="btn-run-simulation" class="btn btn-primary btn-block">
+          Run Inversion
+        </button>
+
+        <div class="device-summary">
+          <div class="summary-row">
+            <span>Absorption Line:</span>
+            <strong>CH4 lines at 3017.98 and 3018.42 cm⁻¹ (assumed)</strong>
+          </div>
+          <div class="summary-row">
+            <span>Optical Path:</span>
+            <strong>L = 70 cm</strong>
+          </div>
+          <div class="summary-row">
+            <span>ADC Resolution:</span>
+            <strong>16-bit (5.0 V Full Scale)</strong>
+          </div>
+          <div class="summary-row">
+            <span>Optimizer:</span>
+            <strong>LM (Analytical Jacobians)</strong>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Visual Tabs Area -->
+      <main class="content-panel">
+        <nav class="nav-tabs">
+          <button id="tab-spectroscopy" class="tab-btn active" data-tab="pane-spectroscopy">
+            1. Spectroscopy & Voigt Fit
+          </button>
+          <button id="tab-comparison" class="tab-btn" data-tab="pane-comparison">
+            2. Physics vs ML Side-by-Side
+          </button>
+          <button id="tab-allan" class="tab-btn" data-tab="pane-allan">
+            3. Allan Variance & Stability
+          </button>
+          <button id="tab-lockin" class="tab-btn" data-tab="pane-lockin">
+            4. WMS Lock-In Demodulation
+          </button>
+        </nav>
+
+        <!-- Pane 1: Spectroscopy & Voigt Fit -->
+        <div id="pane-spectroscopy" class="tab-pane active">
+          <div class="metrics-ribbon">
+            <div class="metric-card">
+              <span class="metric-label">Retrieved Concentration</span>
+              <span id="spec-fitted-x" class="metric-value text-cyan">-- ppm</span>
+              <span id="spec-true-x" class="metric-sub">Ground Truth: 50.0 ppm</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">CRB 1-σ Uncertainty</span>
+              <span id="spec-crb" class="metric-value text-purple">-- ppm</span>
+              <span class="metric-sub">Theoretical Lower Bound</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Levenberg-Marquardt</span>
+              <span id="spec-iter" class="metric-value text-emerald">-- Iters</span>
+              <span id="spec-latency" class="metric-sub">Latency: -- ms</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Residual Std Dev</span>
+              <span id="spec-residual-std" class="metric-value text-amber">-- mV</span>
+              <span id="spec-status" class="metric-sub">Converged</span>
+            </div>
+          </div>
+
+          <div class="charts-vertical">
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3>Photodiode Transmission Voltage V(ν) and Laser Baseline P_L(ν)</h3>
+                <span class="chart-legend"><span class="dot dot-cyan"></span> V(ν) Measured &nbsp; <span class="dot dot-amber"></span> Baseline P_L</span>
+              </div>
+              <div id="chart-transmission" class="chart-container"></div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3>Absorbance Profile A(ν) and Fitted Voigt Lineshape</h3>
+                <span class="chart-legend"><span class="dot dot-purple"></span> Absorbance &nbsp; <span class="dot dot-emerald"></span> Voigt LM Fit</span>
+              </div>
+              <div id="chart-absorbance" class="chart-container"></div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3>Inversion Residuals (V_model - V_meas)</h3>
+                <span class="chart-legend"><span class="dot dot-rose"></span> Residuals &nbsp; <span class="dot dot-gray"></span> ±3σ CRB Bounds</span>
+              </div>
+              <div id="chart-residuals" class="chart-container chart-small"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pane 2: Physics vs ML Side-by-Side -->
+        <div id="pane-comparison" class="tab-pane">
+          <div class="comparison-banner">
+            <h3>Methodological Benchmark: Physics-Informed Inversion vs. 1D CNN Deep Ensemble</h3>
+            <p>Same simulated scan given to the Levenberg-Marquardt fit and to the trained 1D CNN deep ensemble (5 members, weights from <code>scripts/run_ml_benchmark.py</code>). The ensemble sees only the voltage trace; the fit is given the true T, P, L and wavenumber axis. Stored held-out results for six scenarios are in the README.</p>
+          </div>
+
+          <div class="comparison-cards-grid">
+            <!-- Classical Physics Card -->
+            <div class="method-card">
+              <div class="method-card-header">
+                <div class="method-title">
+                  <span class="badge-method badge-phys">Physics-Based</span>
+                  <h4>Levenberg-Marquardt (LM)</h4>
+                </div>
+                <span class="method-pill pill-success">Physics-based</span>
+              </div>
+              <div class="method-body">
+                <div class="result-number">
+                  <span id="comp-phys-val" class="main-val text-cyan">--</span>
+                  <span class="unit">ppm</span>
+                </div>
+                <div class="stat-list">
+                  <div class="stat-item">
+                    <span>95% Confidence Interval:</span>
+                    <strong id="comp-phys-ci">[--, --] ppm</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Absolute Error:</span>
+                    <strong id="comp-phys-err">-- ppm</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Analytical Jacobians:</span>
+                    <strong class="text-emerald">Exact dV/dx, dV/dc</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Execution Latency:</span>
+                    <strong id="comp-phys-lat">-- ms</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Fit model:</span>
+                    <strong id="comp-phys-model" class="text-emerald">CH4 lines + polynomial baseline, no etalon term</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Machine Learning Card -->
+            <div class="method-card">
+              <div class="method-card-header">
+                <div class="method-title">
+                  <span class="badge-method badge-ml">Deep Learning</span>
+                  <h4>1D CNN Deep Ensemble</h4>
+                </div>
+                <span id="comp-ml-badge" class="method-pill pill-warning">--</span>
+              </div>
+              <div class="method-body">
+                <div class="result-number">
+                  <span id="comp-ml-val" class="main-val text-purple">--</span>
+                  <span class="unit">ppm</span>
+                </div>
+                <div class="stat-list">
+                  <div class="stat-item">
+                    <span>95% Confidence Interval:</span>
+                    <strong id="comp-ml-ci">[--, --] ppm</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Absolute Error:</span>
+                    <strong id="comp-ml-err">-- ppm</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Loss Function:</span>
+                    <strong>Heteroscedastic Gaussian NLL</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Inference Latency:</span>
+                    <strong id="comp-ml-lat" class="text-cyan">< 1.0 ms</strong>
+                  </div>
+                  <div class="stat-item">
+                    <span>Operating conditions:</span>
+                    <strong id="comp-ml-ood-text" class="text-rose">--</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Real-Time Inversion Error vs. Ground Truth</h3>
+              <span class="chart-legend"><span class="dot dot-cyan"></span> Physics LM &nbsp; <span class="dot dot-purple"></span> Deep Ensemble</span>
+            </div>
+            <div id="chart-comparison-bars" class="chart-container chart-medium"></div>
+          </div>
+        </div>
+
+        <!-- Pane 3: Allan Variance & Stability -->
+        <div id="pane-allan" class="tab-pane">
+          <div class="metrics-ribbon">
+            <div class="metric-card">
+              <span class="metric-label">White Noise Slope</span>
+              <span id="allan-slope" class="metric-value text-cyan">-0.51</span>
+              <span class="metric-sub">Theoretical: -0.50</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Optimum Integration Time</span>
+              <span id="allan-tau-opt" class="metric-value text-emerald">~10.0 s</span>
+              <span class="metric-sub">Turnover to Pink Noise</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Minimum Detectable Limit</span>
+              <span id="allan-min-lod" class="metric-value text-purple">0.08 ppm</span>
+              <span class="metric-sub">LOD at τ_opt</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Sampling Rate</span>
+              <span class="metric-value text-amber">100 Hz</span>
+              <span class="metric-sub">N = 5,000 Points</span>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Allan-Werle Deviation σ_A(τ) (Log-Log Scale)</h3>
+              <span class="chart-legend"><span class="dot dot-cyan"></span> Measured σ_A(τ) &nbsp; <span class="dot dot-gray"></span> τ^-0.5 White Noise Fit &nbsp; <span class="dot dot-emerald"></span> τ_opt Minimum</span>
+            </div>
+            <div id="chart-allan-plot" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Pane 4: WMS Lock-In Demodulation -->
+        <div id="pane-lockin" class="tab-pane">
+          <div class="metrics-ribbon">
+            <div class="metric-card">
+              <span class="metric-label">Fundamental (1f) Amplitude</span>
+              <span id="lockin-r1f" class="metric-value text-cyan">-- V</span>
+              <span class="metric-sub">Laser Power & Baseline</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Second Harmonic (2f) Peak</span>
+              <span id="lockin-r2f" class="metric-value text-purple">-- V</span>
+              <span class="metric-sub">Background-Free Gas Signal</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Demodulation Phase</span>
+              <span id="lockin-phase" class="metric-value text-emerald">-- °</span>
+              <span class="metric-sub">Optimal In-Phase Alignment</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">2f / 1f Normalized Ratio</span>
+              <span id="lockin-ratio" class="metric-value text-amber">--</span>
+              <span class="metric-sub">Intensity-Independent</span>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Demodulated Wavelength Modulation Harmonics</h3>
+              <span class="chart-legend"><span class="dot dot-cyan"></span> Modulated Detector Signal &nbsp; <span class="dot dot-purple"></span> 2f WMS Peak</span>
+            </div>
+            <div id="chart-lockin-plot" class="chart-container"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

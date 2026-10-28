@@ -1,0 +1,38 @@
+[
+  {
+    "nu_cm1": 3017.414,
+    "S_T0": 1.15e-19,
+    "gamma_air": 0.0620,
+    "gamma_self": 0.0780,
+    "n_air": 0.72,
+    "delta_air": -0.0085,
+    "elower": 62.87
+  },
+  {
+    "nu_cm1": 3017.982,
+    "S_T0": 8.92e-20,
+    "gamma_air": 0.0590,
+    "gamma_self": 0.0740,
+    "n_air": 0.70,
+    "delta_air": -0.0090,
+    "elower": 105.12
+  },
+  {
+    "nu_cm1": 3018.423,
+    "S_T0": 1.84e-19,
+    "gamma_air": 0.0645,
+    "gamma_self": 0.0810,
+    "n_air": 0.75,
+    "delta_air": -0.0080,
+    "elower": 31.44
+  },
+  {
+    "nu_cm1": 3018.895,
+    "S_T0": 4.50e-20,
+    "gamma_air": 0.0560,
+    "gamma_self": 0.0710,
+    "n_air": 0.68,
+    "delta_air": -0.0095,
+    "elower": 150.25
+  }
+]
